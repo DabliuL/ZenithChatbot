@@ -1,0 +1,32 @@
+{
+  "name": "zenithchatbot",
+  "version": "1.0.0",
+  "description": "",
+  "author": "",
+  "license": "ISC",
+  "main": "chatbotmauatur.js",
+  "bin": "chatbotmauatur.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "pkg ."
+  },
+  "dependencies": {
+    "cors": "^2.8.6",
+    "express": "^5.2.1",
+    "moment-timezone": "^0.5.45",
+    "open": "^8.4.2",
+    "pkg": "^5.8.1",
+    "qrcode-terminal": "^0.12.0",
+    "socket.io": "^4.8.3",
+    "whatsapp-web.js": "^1.34.7"
+  },
+  "pkg": {
+    "assets": [
+      "public-web/**/*"
+    ],
+    "targets": [
+      "node18-win-x64"
+    ],
+    "outputPath": "dist"
+  }
+}

@@ -1,0 +1,24 @@
+# Pastas de autenticação e cache do WhatsApp (MUITO IMPORTANTE)
+.wwebjs_auth/
+.wwebjs_cache/
+status_bot.json
+config_bot.json
+
+# Dependências do Node.js
+**/node_modules/
+
+# Arquivos e pastas de build (saídas compiladas)
+**/dist/
+Release/
+InstaladorFinal/
+
+# Navegadores embutidos
+**/chrome-win/
+
+# Arquivos de logs locais
+**/chatbot.log
+*.log
+
+# Arquivos do sistema operacional
+.DS_Store
+Thumbs.db
