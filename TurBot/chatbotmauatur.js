@@ -18,6 +18,7 @@ const { Client, LocalAuth, MessageMedia } = require('whatsapp-web.js');
 const path = require('path');
 const express = require('express');
 const http = require('http');
+const https = require('https');
 const { Server } = require("socket.io");
 const cors = require('cors');
 const open = require('open');
@@ -48,6 +49,72 @@ const bootTime = Date.now();
 const basePath = process.pkg ? path.dirname(process.execPath) : process.cwd();
 const chromiumPath = path.join(basePath, 'chrome-win', 'chrome.exe');
 const statusBotPath = path.join(basePath, 'status_bot.json');
+
+// Configurações do Atualizador Automático (Auto-Updater)
+const CURRENT_VERSION = '1.1.1';
+const VERSION_CHECK_URL = 'https://raw.githubusercontent.com/DabliuL/ZenithChatbot/main/version.json';
+let updateStatus = { available: false, version: '', url: '', changelog: '' };
+
+function checkForUpdates() {
+    return new Promise((resolve) => {
+        https.get(VERSION_CHECK_URL, (res) => {
+            if (res.statusCode !== 200) {
+                logToFile(`Falha ao checar atualizações: Status HTTP ${res.statusCode}`, 'WARNING');
+                resolve();
+                return;
+            }
+            let data = '';
+            res.on('data', (chunk) => { data += chunk; });
+            res.on('end', () => {
+                try {
+                    const remote = JSON.parse(data);
+                    if (remote.version && remote.version !== CURRENT_VERSION) {
+                        updateStatus = {
+                            available: true,
+                            version: remote.version,
+                            url: remote.url,
+                            changelog: remote.changelog
+                        };
+                        logToFile(`[ATUALIZADOR] Nova versão disponível: v${remote.version}`);
+                        io.emit('update_status', updateStatus);
+                    } else {
+                        updateStatus.available = false;
+                        io.emit('update_status', updateStatus);
+                    }
+                } catch (e) {
+                    logToFile(`Falha ao processar version.json: ${e.message}`, 'WARNING');
+                }
+                resolve();
+            });
+        }).on('error', (err) => {
+            logToFile(`Falha ao checar atualizações: ${err.message}`, 'WARNING');
+            resolve();
+        });
+    });
+}
+
+function downloadFile(url, dest) {
+    return new Promise((resolve, reject) => {
+        const file = fs.createWriteStream(dest);
+        https.get(url, (response) => {
+            if (response.statusCode === 302 || response.statusCode === 301) {
+                downloadFile(response.headers.location, dest).then(resolve).catch(reject);
+                return;
+            }
+            if (response.statusCode !== 200) {
+                reject(new Error(`Erro HTTP ${response.statusCode}`));
+                return;
+            }
+            response.pipe(file);
+            file.on('finish', () => {
+                file.close(resolve);
+            });
+        }).on('error', (err) => {
+            fs.unlink(dest, () => {});
+            reject(err);
+        });
+    });
+}
 
 function logToFile(message, level = 'INFO') {
     const timestamp = new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' });
@@ -270,6 +337,7 @@ io.on('connection', (socket) => {
     socket.emit('status', botStatus);
     socket.emit('paused_state', isPaused);
     socket.emit('recovery_status', botRecoveryStatus);
+    socket.emit('update_status', updateStatus);
     if (qrCodeData) {
         socket.emit('qr', qrCodeData);
     }
@@ -337,8 +405,56 @@ io.on('connection', (socket) => {
         process.exit(0);
     });
 
+    socket.on('trigger_update', async () => {
+        if (!updateStatus.available || !updateStatus.url) {
+            logToFile('[ATUALIZADOR] Nenhuma atualização disponível ou URL inválido.', 'WARNING');
+            return;
+        }
+
+        logToFile(`[ATUALIZADOR] Iniciando atualização para a versão v${updateStatus.version}...`);
+        botStatus = 'updating';
+        io.emit('status', botStatus);
+
+        const destPath = path.join(basePath, 'ZenithChatbot_new.exe');
+        try {
+            await downloadFile(updateStatus.url, destPath);
+            logToFile('[ATUALIZADOR] Download concluído com sucesso. Criando script de instalação...');
+
+            const batPath = path.join(basePath, 'update.bat');
+            const batContent = `@echo off
+timeout /t 2 /nobreak > nul
+taskkill /F /IM ZenithChatbot.exe > nul 2>&1
+del /f /q ZenithChatbot.exe
+rename ZenithChatbot_new.exe ZenithChatbot.exe
+start ZenithChatbot.exe
+del "%~f0"
+`;
+            fs.writeFileSync(batPath, batContent, 'utf8');
+
+            logToFile('[ATUALIZADOR] Executando script de atualização e encerrando processo atual...');
+            
+            // Encerra sessão do bot se estiver conectada
+            try {
+                await client.destroy();
+            } catch (e) {}
+
+            const { spawn } = require('child_process');
+            const child = spawn('cmd.exe', ['/c', batPath], {
+                detached: true,
+                stdio: 'ignore'
+            });
+            child.unref();
+
+            process.exit(0);
+        } catch (err) {
+            logToFile(`[ATUALIZADOR] Erro durante a atualização: ${err.message}`, 'ERROR');
+            botStatus = 'connected'; // fallback status
+            io.emit('status', botStatus);
+        }
+    });
+
     socket.on('disconnect', () => {
-        console.log('Cliente desconectado do painel web:', socket.id);
+        logToFile(`Cliente desconectado do painel web: ${socket.id}`);
     });
 });
 
@@ -647,7 +763,8 @@ client.initialize().catch(err => {
 
 const PORT = process.env.PORT || 3001;
 server.listen(PORT, async () => {
-    console.log(`Servidor do painel web rodando na porta ${PORT}`);
+    logToFile(`Servidor do painel web rodando na porta ${PORT}`);
+    checkForUpdates();
     try {
         await open(`http://localhost:${PORT}`);
     } catch (e) { }

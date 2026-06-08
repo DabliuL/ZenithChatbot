@@ -14,6 +14,7 @@ function App() {
   const [recoveryStatus, setRecoveryStatus] = useState(null);
   const [isRestarting, setIsRestarting] = useState(false);
   const [restartingReason, setRestartingReason] = useState('');
+  const [updateInfo, setUpdateInfo] = useState(null);
 
   useEffect(() => {
     socket.on('status', (newStatus) => {
@@ -47,6 +48,10 @@ function App() {
       setRecoveryStatus(recStatus);
     });
 
+    socket.on('update_status', (info) => {
+      setUpdateInfo(info);
+    });
+
     socket.on('disconnect', () => {
       // Quando o servidor cai, a menos que estejamos reiniciando deliberadamente, mostramos como desconectado
       setStatus('disconnected');
@@ -61,6 +66,7 @@ function App() {
       socket.off('config_data');
       socket.off('restarting_event');
       socket.off('recovery_status');
+      socket.off('update_status');
       socket.off('disconnect');
     };
   }, [editingConfig]);
@@ -89,6 +95,13 @@ function App() {
       setTimeout(() => {
         window.close();
       }, 1000);
+    }
+  };
+
+  const handleTriggerUpdate = () => {
+    if (window.confirm(`Deseja atualizar o robô para a versão v${updateInfo.version} agora? O sistema fará o download da nova versão e reiniciará automaticamente.`)) {
+      socket.emit('trigger_update');
+      setStatus('updating');
     }
   };
 
@@ -270,6 +283,20 @@ function App() {
     );
   }
 
+  if (status === 'updating') {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh', background: 'var(--bg-color)', color: 'var(--text-primary)', fontFamily: 'sans-serif' }}>
+        <div className="card">
+          <div className="loading-spinner"></div>
+          <h2 style={{ color: 'var(--warning)', marginBottom: '1rem', marginTop: 0 }}>📥 Baixando Atualização...</h2>
+          <p className="message" style={{ lineHeight: '1.6', marginBottom: '1.5rem' }}>
+            O robô está baixando e aplicando a nova versão do executável. O chatbot fechará e reabrirá automaticamente em instantes. Por favor, aguarde e não feche esta janela.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   if (isRestarting) {
     const getRestartingReasonText = () => {
       switch (restartingReason) {
@@ -304,7 +331,10 @@ function App() {
     <div className="dashboard-container">
       <header className="header" style={{display: 'flex', flexDirection: 'column', gap: '1rem', paddingBottom: '1rem'}}>
         <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%'}}>
-          <h1>Zenith Chatbot</h1>
+          <div style={{display: 'flex', alignItems: 'baseline', gap: '0.5rem'}}>
+            <h1 style={{margin: 0}}>Zenith Chatbot</h1>
+            <span style={{fontSize: '0.85rem', color: 'var(--text-secondary)', opacity: 0.8}}>v1.1.1</span>
+          </div>
           <div style={{display: 'flex', gap: '1rem'}}>
             <button 
               onClick={() => setActiveTab('dashboard')}
@@ -394,6 +424,43 @@ function App() {
                     ? 'O chatbot está pausado e não responderá a novas mensagens até ser retomado.' 
                     : 'O chatbot está conectado e pronto para responder às mensagens dos seus clientes.'}
                 </p>
+                {updateInfo && updateInfo.available && (
+                  <div style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    backgroundColor: 'rgba(245, 158, 11, 0.1)',
+                    border: '1px solid var(--warning)',
+                    padding: '1rem',
+                    borderRadius: '0.5rem',
+                    marginBottom: '1.5rem',
+                    textAlign: 'left'
+                  }}>
+                    <div style={{ flex: 1, marginRight: '1rem' }}>
+                      <strong style={{ color: 'var(--text-primary)', display: 'block', marginBottom: '0.25rem' }}>
+                        🚀 Nova Atualização Disponível (v{updateInfo.version})
+                      </strong>
+                      <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                        Novidades: {updateInfo.changelog}
+                      </span>
+                    </div>
+                    <button
+                      onClick={handleTriggerUpdate}
+                      style={{
+                        backgroundColor: 'var(--warning)',
+                        color: 'white',
+                        border: 'none',
+                        padding: '0.5rem 1rem',
+                        borderRadius: '0.5rem',
+                        cursor: 'pointer',
+                        fontWeight: 'bold',
+                        whiteSpace: 'nowrap'
+                      }}
+                    >
+                      Atualizar Agora
+                    </button>
+                  </div>
+                )}
                 {recoveryStatus && recoveryStatus.lastRestartReason && (
                   <div style={{
                     marginTop: '2rem',
