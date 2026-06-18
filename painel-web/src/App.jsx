@@ -333,7 +333,7 @@ function App() {
         <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%'}}>
           <div style={{display: 'flex', alignItems: 'baseline', gap: '0.5rem'}}>
             <h1 style={{margin: 0}}>Zenith Chatbot</h1>
-            <span style={{fontSize: '0.85rem', color: 'var(--text-secondary)', opacity: 0.8}}>v1.1.1</span>
+            <span style={{fontSize: '0.85rem', color: 'var(--text-secondary)', opacity: 0.8}}>v1.1.2</span>
           </div>
           <div style={{display: 'flex', gap: '1rem'}}>
             <button 

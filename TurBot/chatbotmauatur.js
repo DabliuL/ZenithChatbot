@@ -51,7 +51,7 @@ const chromiumPath = path.join(basePath, 'chrome-win', 'chrome.exe');
 const statusBotPath = path.join(basePath, 'status_bot.json');
 
 // Configurações do Atualizador Automático (Auto-Updater)
-const CURRENT_VERSION = '1.1.1';
+const CURRENT_VERSION = '1.1.2';
 const VERSION_CHECK_URL = 'https://raw.githubusercontent.com/DabliuL/ZenithChatbot/main/version.json';
 let updateStatus = { available: false, version: '', url: '', changelog: '' };
 
